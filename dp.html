@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DP Ledger — Dynamic Programming Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #f6f3ea;
+    --paper-line: #ded7c4;
+    --ink: #1c2420;
+    --ink-soft: #5b6058;
+    --pine: #2d5f4c;
+    --pine-deep: #1e4536;
+    --rust: #c1793d;
+    --rust-soft: #eadfca;
+    --card: #fffdf7;
+    --done-bg: #e7efe6;
+    --shadow: rgba(28,36,32,0.08);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/100% 28px,
+      var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    padding:20px 14px 60px;
+    min-height:100vh;
+  }
+
+  .wrap{max-width:920px;margin:0 auto;}
+
+  /* header / ledger strip */
+  header{
+    background:var(--pine-deep);
+    color:#f4f1e6;
+    border-radius:10px;
+    padding:22px 24px;
+    margin-bottom:18px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 6px 18px var(--shadow);
+  }
+  header::before{
+    content:"";
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(135deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 14px);
+    pointer-events:none;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#b9d8c9;
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:800;
+    font-size:clamp(22px,5vw,32px);
+    margin:0 0 14px;
+    letter-spacing:-0.01em;
+  }
+  .stat-row{
+    display:flex; flex-wrap:wrap; gap:10px 22px;
+    align-items:flex-end;
+  }
+  .count{
+    font-family:'JetBrains Mono',monospace;
+    font-size:clamp(28px,6vw,40px);
+    font-weight:700;
+    line-height:1;
+  }
+  .count small{font-size:14px; font-weight:500; color:#b9d8c9; margin-left:6px;}
+  .progress-track{
+    flex:1 1 220px;
+    height:10px;
+    background:rgba(255,255,255,0.14);
+    border-radius:6px;
+    overflow:hidden;
+    align-self:center;
+    min-width:140px;
+  }
+  .progress-fill{
+    height:100%;
+    background:linear-gradient(90deg,#7fb99e,#c1793d);
+    width:0%;
+    transition:width .4s ease;
+    border-radius:6px;
+  }
+  .reset-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.06em;
+    background:transparent;
+    border:1px solid rgba(244,241,230,0.35);
+    color:#f4f1e6;
+    padding:7px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .reset-btn:hover{background:rgba(244,241,230,0.1);}
+
+  /* filter chips */
+  .filters{
+    display:flex; gap:8px; flex-wrap:wrap;
+    margin:0 0 18px;
+  }
+  .chip{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    padding:6px 12px;
+    border-radius:20px;
+    border:1px solid var(--paper-line);
+    background:var(--card);
+    color:var(--ink-soft);
+    cursor:pointer;
+    user-select:none;
+  }
+  .chip.active{
+    background:var(--pine);
+    border-color:var(--pine);
+    color:#fff;
+  }
+
+  /* category sections */
+  .section{
+    background:var(--card);
+    border:1px solid var(--paper-line);
+    border-radius:10px;
+    margin-bottom:16px;
+    overflow:hidden;
+    box-shadow:0 2px 6px var(--shadow);
+  }
+  .section-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 18px;
+    cursor:pointer;
+    background:linear-gradient(90deg, var(--rust-soft), transparent 65%);
+  }
+  .section-head h2{
+    font-family:'JetBrains Mono',monospace;
+    font-size:15px;
+    margin:0;
+    font-weight:700;
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+  }
+  .section-head h2 .num{color:var(--rust); font-size:13px;}
+  .section-meta{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    white-space:nowrap;
+  }
+  .mini-bar{
+    width:60px; height:6px;
+    background:var(--paper-line);
+    border-radius:4px;
+    overflow:hidden;
+    display:none;
+  }
+  @media(min-width:520px){ .mini-bar{display:block;} }
+  .mini-fill{height:100%; background:var(--pine); width:0%;}
+  .chevron{transition:transform .25s ease; color:var(--ink-soft); font-size:12px;}
+  .section.collapsed .chevron{transform:rotate(-90deg);}
+  .section.collapsed .rows{display:none;}
+
+  .rows{border-top:1px solid var(--paper-line);}
+  .row{
+    display:grid;
+    grid-template-columns:auto 1fr auto auto;
+    align-items:center;
+    gap:10px 14px;
+    padding:11px 18px;
+    border-bottom:1px solid var(--paper-line);
+    transition:background .15s ease;
+  }
+  .row:last-child{border-bottom:none;}
+  .row.done{background:var(--done-bg);}
+  .row:hover{background:#f1ede0;}
+  .row.done:hover{background:#dfeadd;}
+
+  .chk{
+    appearance:none; -webkit-appearance:none;
+    width:20px; height:20px;
+    border:2px solid var(--ink-soft);
+    border-radius:5px;
+    cursor:pointer;
+    position:relative;
+    flex:none;
+    background:#fff;
+  }
+  .chk:checked{background:var(--pine); border-color:var(--pine);}
+  .chk:checked::after{
+    content:"";
+    position:absolute; left:5px; top:1px;
+    width:5px; height:10px;
+    border:solid #fff;
+    border-width:0 2px 2px 0;
+    transform:rotate(40deg);
+  }
+
+  .prob-name{
+    font-size:14.5px;
+    font-weight:600;
+    color:var(--ink);
+    min-width:0;
+  }
+  .row.done .prob-name{color:var(--ink-soft); text-decoration:line-through; text-decoration-color:var(--pine);}
+  .pattern-tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--rust);
+    background:var(--rust-soft);
+    padding:3px 8px;
+    border-radius:5px;
+    white-space:nowrap;
+    justify-self:end;
+  }
+  .go-link{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    text-decoration:none;
+    color:var(--pine-deep);
+    border:1px solid var(--pine);
+    padding:5px 9px;
+    border-radius:6px;
+    white-space:nowrap;
+  }
+  .go-link:hover{background:var(--pine); color:#fff;}
+
+  @media(max-width:600px){
+    .row{grid-template-columns:auto 1fr auto; grid-template-areas:"chk name link" "chk tag tag";}
+    .chk{grid-area:chk;}
+    .prob-name{grid-area:name;}
+    .go-link{grid-area:link;}
+    .pattern-tag{grid-area:tag; justify-self:start; margin-top:2px;}
+  }
+
+  footer{
+    text-align:center;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:24px;
+  }
+
+  .loading{
+    text-align:center;
+    font-family:'JetBrains Mono',monospace;
+    color:var(--ink-soft);
+    padding:40px;
+    font-size:13px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="loading" id="loadingMsg">Loading your ledger…</div>
+</div>
+
+<script>
+const DATA = [
+  {cat:"1D DP", items:[
+    ["Min Cost Climbing Stairs","Climbing Stairs","https://leetcode.com/problems/min-cost-climbing-stairs/"],
+    ["Decode Ways","Linear DP","https://leetcode.com/problems/decode-ways/"],
+    ["Delete and Earn","House Robber Variation","https://leetcode.com/problems/delete-and-earn/"],
+    ["Jump Game","Reachability DP/Greedy","https://leetcode.com/problems/jump-game/"],
+    ["Jump Game II","Frog Jump Variation","https://leetcode.com/problems/jump-game-ii/"],
+    ["Integer Break","Partition DP","https://leetcode.com/problems/integer-break/"],
+    ["Perfect Squares","1D DP","https://leetcode.com/problems/perfect-squares/"],
+    ["Combination Sum IV","Count Ways DP","https://leetcode.com/problems/combination-sum-iv/"],
+  ]},
+  {cat:"Grid DP", items:[
+    ["Minimum Path Sum","Grid","https://leetcode.com/problems/minimum-path-sum/"],
+    ["Cherry Pickup","Ninja & Friends","https://leetcode.com/problems/cherry-pickup/"],
+    ["Cherry Pickup II","Ninja & Friends","https://leetcode.com/problems/cherry-pickup-ii/"],
+    ["Dungeon Game","Reverse Grid DP","https://leetcode.com/problems/dungeon-game/"],
+    ["Out of Boundary Paths","Grid + Memoization","https://leetcode.com/problems/out-of-boundary-paths/"],
+    ["Number of Increasing Paths in a Grid","DFS + DP","https://leetcode.com/problems/number-of-increasing-paths-in-a-grid/"],
+  ]},
+  {cat:"Subset DP / Knapsack", items:[
+    ["Last Stone Weight II","Partition","https://leetcode.com/problems/last-stone-weight-ii/"],
+    ["Ones and Zeroes","0/1 Knapsack","https://leetcode.com/problems/ones-and-zeroes/"],
+    ["Coin Change","Min Coins","https://leetcode.com/problems/coin-change/"],
+    ["Combination Sum IV","Count Ways","https://leetcode.com/problems/combination-sum-iv/"],
+    ["Target Sum","Same Pattern","https://leetcode.com/problems/target-sum/"],
+    ["Profitable Schemes","2D Knapsack","https://leetcode.com/problems/profitable-schemes/"],
+    ["Tallest Billboard","Partition DP","https://leetcode.com/problems/tallest-billboard/"],
+  ]},
+  {cat:"String DP (LCS Family)", items:[
+    ["Interleaving String","LCS Style","https://leetcode.com/problems/interleaving-string/"],
+    ["Regular Expression Matching","Wildcard Hard","https://leetcode.com/problems/regular-expression-matching/"],
+    ["Palindrome Partitioning II","Palindrome DP","https://leetcode.com/problems/palindrome-partitioning-ii/"],
+    ["Count Different Palindromic Subsequences","LPS Variant","https://leetcode.com/problems/count-different-palindromic-subsequences/"],
+    ["Minimum ASCII Delete Sum","Edit Distance","https://leetcode.com/problems/minimum-ascii-delete-sum-for-two-strings/"],
+    ["Delete Operation for Two Strings","LCS","https://leetcode.com/problems/delete-operation-for-two-strings/"],
+    ["Longest Ideal Subsequence","LIS + Strings","https://leetcode.com/problems/longest-ideal-subsequence/"],
+  ]},
+  {cat:"Stock DP", items:[
+    ["Maximum Profit in Job Scheduling","Similar DP Decisions","https://leetcode.com/problems/maximum-profit-in-job-scheduling/"],
+    ["Best Sightseeing Pair","State Optimization","https://leetcode.com/problems/best-sightseeing-pair/"],
+    ["Maximum Alternating Subsequence Sum","Buy/Sell Feeling","https://leetcode.com/problems/maximum-alternating-subsequence-sum/"],
+  ]},
+  {cat:"LIS Pattern", items:[
+    ["Russian Doll Envelopes","LIS","https://leetcode.com/problems/russian-doll-envelopes/"],
+    ["Maximum Length of Pair Chain","LIS","https://leetcode.com/problems/maximum-length-of-pair-chain/"],
+    ["Wiggle Subsequence","LIS Variation","https://leetcode.com/problems/wiggle-subsequence/"],
+    ["Arithmetic Slices II","LIS DP","https://leetcode.com/problems/arithmetic-slices-ii-subsequence/"],
+    ["Longest Arithmetic Subsequence","LIS Variant","https://leetcode.com/problems/longest-arithmetic-subsequence/"],
+  ]},
+  {cat:"Interval DP (MCM)", items:[
+    ["Strange Printer","Interval DP","https://leetcode.com/problems/strange-printer/"],
+    ["Remove Boxes","Hard Interval DP","https://leetcode.com/problems/remove-boxes/"],
+    ["Minimum Score Triangulation","MCM","https://leetcode.com/problems/minimum-score-triangulation-of-polygon/"],
+    ["Predict the Winner","Interval DP","https://leetcode.com/problems/predict-the-winner/"],
+    ["Stone Game","Interval DP","https://leetcode.com/problems/stone-game/"],
+    ["Stone Game II","Interval DP","https://leetcode.com/problems/stone-game-ii/"],
+    ["Stone Game III","Interval DP","https://leetcode.com/problems/stone-game-iii/"],
+  ]},
+  {cat:"Square DP", items:[
+    ["Maximal Square","Same Pattern","https://leetcode.com/problems/maximal-square/"],
+    ["Largest 1-Bordered Square","Square DP","https://leetcode.com/problems/largest-1-bordered-square/"],
+    ["Image Overlap","Matrix DP","https://leetcode.com/problems/image-overlap/"],
+  ]},
+  {cat:"Advanced DP (Must Do)", items:[
+    ["Freedom Trail","—","https://leetcode.com/problems/freedom-trail/"],
+    ["Race Car","—","https://leetcode.com/problems/race-car/"],
+    ["Number of Ways to Stay in the Same Place After Some Steps","—","https://leetcode.com/problems/number-of-ways-to-stay-in-the-same-place-after-some-steps/"],
+    ["Number of Music Playlists","—","https://leetcode.com/problems/number-of-music-playlists/"],
+    ["Paint House III","—","https://leetcode.com/problems/paint-house-iii/"],
+    ["Minimum Cost to Merge Stones","—","https://leetcode.com/problems/minimum-cost-to-merge-stones/"],
+    ["Strange Printer","—","https://leetcode.com/problems/strange-printer/"],
+    ["Remove Boxes","—","https://leetcode.com/problems/remove-boxes/"],
+  ]},
+];
+
+function slug(catIdx, itemIdx){ return "done:"+catIdx+":"+itemIdx; }
+
+let done = {};       // key -> true
+let collapsed = {};  // catIdx -> true
+
+async function loadState(){
+  try{
+    const res = await window.storage.get('dp-tracker-state');
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      done = parsed.done || {};
+      collapsed = parsed.collapsed || {};
+    }
+  }catch(e){
+    // no saved state yet, start fresh
+  }
+}
+
+async function saveState(){
+  try{
+    await window.storage.set('dp-tracker-state', JSON.stringify({done, collapsed}));
+  }catch(e){
+    console.error('Could not save progress', e);
+  }
+}
+
+let currentFilter = 'all';
+
+function totalCounts(){
+  let total=0, solved=0;
+  DATA.forEach((sec,ci)=>{
+    sec.items.forEach((it,ii)=>{
+      total++;
+      if(done[slug(ci,ii)]) solved++;
+    });
+  });
+  return {total, solved};
+}
+
+function catCounts(ci){
+  const sec = DATA[ci];
+  let total=sec.items.length, solved=0;
+  sec.items.forEach((it,ii)=>{ if(done[slug(ci,ii)]) solved++; });
+  return {total, solved};
+}
+
+function render(){
+  const app = document.getElementById('app');
+  const {total, solved} = totalCounts();
+  const pct = total ? Math.round((solved/total)*100) : 0;
+
+  let html = `
+    <header>
+      <p class="eyebrow">DP Ledger · ${total} problems logged</p>
+      <h1>Dynamic Programming Tracker</h1>
+      <div class="stat-row">
+        <div class="count">${solved}<small>/ ${total} solved</small></div>
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <button class="reset-btn" onclick="resetAll()">RESET ALL</button>
+      </div>
+    </header>
+    <div class="filters">
+      <div class="chip ${currentFilter==='all'?'active':''}" onclick="setFilter('all')">All</div>
+      <div class="chip ${currentFilter==='todo'?'active':''}" onclick="setFilter('todo')">Unsolved</div>
+      <div class="chip ${currentFilter==='done'?'active':''}" onclick="setFilter('done')">Solved</div>
+    </div>
+  `;
+
+  DATA.forEach((sec, ci)=>{
+    const cc = catCounts(ci);
+    const cpct = cc.total ? Math.round((cc.solved/cc.total)*100) : 0;
+    const isCollapsed = !!collapsed[ci];
+    const visibleItems = sec.items.map((it,ii)=>({it,ii})).filter(({ii})=>{
+      const isDone = !!done[slug(ci,ii)];
+      if(currentFilter==='todo') return !isDone;
+      if(currentFilter==='done') return isDone;
+      return true;
+    });
+    if(currentFilter!=='all' && visibleItems.length===0) return;
+
+    html += `<section class="section ${isCollapsed?'collapsed':''}" data-ci="${ci}">
+      <div class="section-head" onclick="toggleSection(${ci})">
+        <h2><span class="num">${String(ci+1).padStart(2,'0')}</span> ${sec.cat}</h2>
+        <div class="section-meta">
+          <span>${cc.solved}/${cc.total}</span>
+          <div class="mini-bar"><div class="mini-fill" style="width:${cpct}%"></div></div>
+          <span class="chevron">&#9660;</span>
+        </div>
+      </div>
+      <div class="rows">`;
+
+    visibleItems.forEach(({it,ii})=>{
+      const [name, pattern, link] = it;
+      const key = slug(ci,ii);
+      const isDone = !!done[key];
+      html += `
+        <div class="row ${isDone?'done':''}">
+          <input type="checkbox" class="chk" ${isDone?'checked':''} onchange="toggleDone(${ci},${ii})">
+          <span class="prob-name">${name}</span>
+          <a class="go-link" href="${link}" target="_blank" rel="noopener">Solve →</a>
+          <span class="pattern-tag">${pattern}</span>
+        </div>`;
+    });
+
+    html += `</div></section>`;
+  });
+
+  html += `<footer>Progress is saved automatically to this artifact.</footer>`;
+  app.innerHTML = html;
+}
+
+function toggleDone(ci, ii){
+  const key = slug(ci,ii);
+  done[key] = !done[key];
+  if(!done[key]) delete done[key];
+  saveState();
+  render();
+}
+
+function toggleSection(ci){
+  collapsed[ci] = !collapsed[ci];
+  saveState();
+  render();
+}
+
+function setFilter(f){
+  currentFilter = f;
+  render();
+}
+
+async function resetAll(){
+  if(!confirm('Clear all checked progress? This cannot be undone.')) return;
+  done = {};
+  await saveState();
+  render();
+}
+
+(async function init(){
+  await loadState();
+  render();
+})();
+</script>
+</body>
+</html>
